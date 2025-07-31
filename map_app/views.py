@@ -1,6 +1,7 @@
 import requests
 from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
+from datetime import datetime, timedelta 
 
 def home(request):
     return HttpResponse("Harita Projesi Anasayfası!")
@@ -9,19 +10,45 @@ def map_view(request):
     return render(request, 'map_app/map.html')
 
 def get_firms_data(request):
-    FIRMS_API_KEY = "26874a652f47b5801ec566a68ed179f7" 
-    
+    FIRMS_API_KEY = "26874a652f47b5801ec566a68ed179f7"
 
-    firms_url = f"https://firms.modaps.eosdis.nasa.gov/api/country/csv/{FIRMS_API_KEY}/VIIRS_SNPP_NRT/TUR/1/2025-07-29" 
-    
+
+    time_range = request.GET.get('time_range', '24') 
+    confidence_filter = request.GET.get('confidence', 'all') 
+    daynight_filter = request.GET.get('daynight', 'all') 
+    min_frp_filter = request.GET.get('min_frp', '0.0') 
 
     
+    api_date_param = ""
+    try:
+        if time_range == '24' or time_range == '48':
+          
+            api_date_param = time_range
+        elif time_range == '7' or time_range == '30':
+            
+            api_date_param = time_range
+        else:
+   
+            api_date_param = '24' 
+
+        today_date = datetime.now().strftime('%Y-%m-%d')
+        api_date_param = today_date 
+        api_date_param = "2025-07-29"
+
+
+    except ValueError:
+        api_date_param = '24' 
+
+
+    firms_url = f"https://firms.modaps.eosdis.nasa.gov/api/country/csv/{FIRMS_API_KEY}/VIIRS_SNPP_NRT/TUR/1/{api_date_param}"
+
     print(f"FIRMS API URL: {firms_url}")
+
 
     try:
         response = requests.get(firms_url)
-        response.raise_for_status() 
-        
+        response.raise_for_status()
+
         print(f"API Yanıt Durumu Kodu: {response.status_code}")
         print(f"API Yanıt Metni (İlk 500 karakter): \n{response.text[:500]}")
         
@@ -33,7 +60,7 @@ def get_firms_data(request):
 
         headers = [header.strip() for header in csv_data[0].split(',')]
         
-        fires = []
+        all_fires = []
         for row in csv_data[1:]:
             if not row.strip():
                 continue
@@ -44,9 +71,43 @@ def get_firms_data(request):
                 continue
             
             fire_data = dict(zip(headers, values))
-            fires.append(fire_data)
+            all_fires.append(fire_data)
 
-        return JsonResponse({'fires': fires})
+
+        
+        filtered_fires = []
+        for fire in all_fires:
+ 
+          
+            fire_confidence_api = fire.get('confidence', '').lower()
+
+            if confidence_filter != 'all':
+                if confidence_filter == 'low' and fire_confidence_api != 'l':
+                    continue
+                if confidence_filter == 'nominal' and fire_confidence_api != 'n':
+                    continue
+                if confidence_filter == 'high' and fire_confidence_api not in ['h', 'e']: 
+                    continue
+            
+         
+            fire_daynight_api = fire.get('daynight', '').upper()
+            if daynight_filter != 'all' and fire_daynight_api != daynight_filter:
+                continue
+
+          
+            try:
+                fire_frp = float(fire.get('frp', '0.0'))
+                min_frp_val = float(min_frp_filter)
+                if fire_frp < min_frp_val:
+                    continue
+            except ValueError:
+                
+                pass 
+
+            filtered_fires.append(fire)
+        
+
+        return JsonResponse({'fires': filtered_fires}) # 
 
     except requests.exceptions.RequestException as e:
         print(f"API isteği hatası: {e}")

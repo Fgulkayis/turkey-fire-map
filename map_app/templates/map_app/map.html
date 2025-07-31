@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Türkiye Orman Yangınları Haritası</title>
+    <title>Orman Yangınları Haritası</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -10,69 +10,170 @@
 
     <style>
         #map {
-            height: 600px; /* Haritanın yüksekliğini buradan ayarlayabilirsiniz */
-            width: 100%; /* Haritanın genişliğini buradan ayarlayabilirsiniz */
+            height: 600px;
+            width: 100%;
+        }
+        /* Basit filtreleme stilini ekleyelim */
+        .filters {
+            margin-bottom: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            background-color: #f9f9f9;
+        }
+        .filters label, .filters select, .filters input, .filters button {
+            margin-right: 10px;
+            margin-bottom: 5px;
         }
     </style>
 </head>
 <body>
     <h1>Türkiye Orman Yangınları Haritası</h1>
 
+    <div class="filters">
+        <label for="time_range">Zaman Aralığı:</label>
+        <select id="time_range">
+            <option value="24" selected>Son 24 Saat</option>
+            <option value="48">Son 48 Saat</option>
+            <option value="7">Son 7 Gün</option>
+            <option value="30">Son 30 Gün</option>
+            </select>
+
+        <label for="confidence">Güven (Confidence):</label>
+        <select id="confidence">
+            <option value="all" selected>Hepsi</option>
+            <option value="low">Düşük</option>
+            <option value="nominal">Normal</option>
+            <option value="high">Yüksek</option>
+        </select>
+
+        <label for="daynight">Gece/Gündüz:</label>
+        <select id="daynight">
+            <option value="all" selected>Hepsi</option>
+            <option value="D">Gündüz</option>
+            <option value="N">Gece</option>
+        </select>
+        
+        <label for="min_frp">Min. FRP:</label>
+        <input type="number" id="min_frp" value="0.0" step="0.1" min="0">
+
+        <button id="apply_filters">Filtrele</button>
+        <button id="reset_filters">Temizle</button>
+    </div>
     <div id="map"></div>
 
     <script>
-     
-        var map = L.map('map').setView([38.9637, 35.2433], 6); 
-
       
+        var map = L.map('map').setView([38.9637, 35.2433], 6);
+
+       
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
 
-        fetch('/firms_data/') 
-            .then(response => response.json()) 
-            .then(data => {
-                if (data.fires && data.fires.length > 0) {
-                    data.fires.forEach(fire => {
-                        var lat = parseFloat(fire.latitude);
-                        var lon = parseFloat(fire.longitude);
-                        var brightness = fire.bright_ti4;
-                        var date = fire.acq_date;
-                        var time = fire.acq_time;
-                        var confidence = fire.confidence;
-                        var satellite = fire.satellite;
-
-                    
-                        if (isNaN(lat) || isNaN(lon)) {
-                            console.warn("Geçersiz enlem/boylam tespit edildi, işaretçi eklenmedi:", fire);
-                            return;
-                        }
-
-                      
-                        var marker = L.marker([lat, lon]).addTo(map);
-
-                 
-                        var popupContent = `
-                            <b>Yangın Bilgisi</b><br>
-                            Enlem: ${lat}<br>
-                            Boylam: ${lon}<br>
-                            Parlaklık (Bright_TI4): ${brightness}<br>
-                            Tarih: ${date}<br>
-                            Saat: ${time}<br>
-                            Güvenilirlik: ${confidence}<br>
-                            Uydu: ${satellite}
-                        `;
-                        marker.bindPopup(popupContent);
-                    });
-                    console.log(`Haritaya ${data.fires.length} adet yangın noktası eklendi.`);
-                } else {
-                    console.log("API'den yangın verisi gelmedi.");
-                }
-            })
-            .catch(error => {
-                console.error("Yangın verileri çekilirken bir hata oluştu:", error);
-            });
        
+        var fireMarkers = L.featureGroup().addTo(map);
+
+        
+        function addFireMarkersToMap(fires) {
+            fireMarkers.clearLayers(); 
+            if (fires && fires.length > 0) {
+                fires.forEach(fire => {
+                    var lat = parseFloat(fire.latitude);
+                    var lon = parseFloat(fire.longitude);
+                    
+                
+                    if (isNaN(lat) || isNaN(lon)) {
+                        console.warn("Geçersiz enlem/boylam tespit edildi, işaretçi eklenmedi:", fire);
+                        return;
+                    }
+
+                  
+                    var popupContent = `
+                        <b>Yangın Bilgisi</b><br>
+                        Enlem: ${lat}<br>
+                        Boylam: ${lon}<br>
+                        Parlaklık (Bright_TI4): ${fire.bright_ti4}<br>
+                        Tarih: ${fire.acq_date}<br>
+                        Saat: ${fire.acq_time}<br>
+                        Güvenilirlik: ${fire.confidence}<br>
+                        Uydu: ${fire.satellite}<br>
+                        FRP: ${fire.frp}
+                    `;
+                    L.marker([lat, lon]).bindPopup(popupContent).addTo(fireMarkers); 
+                });
+                console.log(`Haritaya ${fires.length} adet yangın noktası eklendi.`);
+            } else {
+                console.log("API'den yangın verisi gelmedi veya filtreye uygun veri bulunamadı.");
+            }
+        }
+
+       
+        function fetchFireData(filters = {}) {
+            let queryParams = new URLSearchParams();
+            if (filters.time_range && filters.time_range !== 'all') {
+                queryParams.append('time_range', filters.time_range);
+            }
+            if (filters.confidence && filters.confidence !== 'all') {
+                queryParams.append('confidence', filters.confidence);
+            }
+            if (filters.daynight && filters.daynight !== 'all') {
+                queryParams.append('daynight', filters.daynight);
+            }
+            if (filters.min_frp && filters.min_frp !== '0.0') { 
+                queryParams.append('min_frp', filters.min_frp);
+            }
+
+            let url = `/firms_data/`;
+            if (queryParams.toString()) {
+                url += `?${queryParams.toString()}`;
+            }
+            
+            console.log("API isteği URL:", url);
+
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) {
+                    
+                        return response.text().then(text => { throw new Error(text) });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.fires) {
+                        addFireMarkersToMap(data.fires);
+                    } else {
+                        console.error("API yanıtında 'fires' anahtarı bulunamadı veya boş geldi:", data);
+                        addFireMarkersToMap([]); 
+                    }
+                })
+                .catch(error => {
+                    console.error("Yangın verileri çekilirken bir hata oluştu:", error);
+                   
+                    addFireMarkersToMap([]);
+                });
+        }
+
+       
+        document.getElementById('apply_filters').addEventListener('click', function() {
+            var time_range = document.getElementById('time_range').value;
+            var confidence = document.getElementById('confidence').value;
+            var daynight = document.getElementById('daynight').value;
+            var min_frp = document.getElementById('min_frp').value;
+
+            fetchFireData({ time_range, confidence, daynight, min_frp });
+        });
+
+       
+        document.getElementById('reset_filters').addEventListener('click', function() {
+            document.getElementById('time_range').value = '24';
+            document.getElementById('confidence').value = 'all';
+            document.getElementById('daynight').value = 'all';
+            document.getElementById('min_frp').value = '0.0';
+            fetchFireData(); 
+        });
+
+       
+        fetchFireData();
     </script>
 </body>
 </html>
