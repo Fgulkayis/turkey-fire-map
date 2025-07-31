@@ -1,13 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title> Türkiye Orman Yangınları Haritası</title>
+    <title>Türkiye Orman Yangınları Haritası</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <style>
         #map {
@@ -22,16 +21,58 @@
     <div id="map"></div>
 
     <script>
-
+     
         var map = L.map('map').setView([38.9637, 35.2433], 6); 
 
-
+      
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
 
-      
- 
+        fetch('/firms_data/') 
+            .then(response => response.json()) 
+            .then(data => {
+                if (data.fires && data.fires.length > 0) {
+                    data.fires.forEach(fire => {
+                        var lat = parseFloat(fire.latitude);
+                        var lon = parseFloat(fire.longitude);
+                        var brightness = fire.bright_ti4;
+                        var date = fire.acq_date;
+                        var time = fire.acq_time;
+                        var confidence = fire.confidence;
+                        var satellite = fire.satellite;
+
+                    
+                        if (isNaN(lat) || isNaN(lon)) {
+                            console.warn("Geçersiz enlem/boylam tespit edildi, işaretçi eklenmedi:", fire);
+                            return;
+                        }
+
+                      
+                        var marker = L.marker([lat, lon]).addTo(map);
+
+                 
+                        var popupContent = `
+                            <b>Yangın Bilgisi</b><br>
+                            Enlem: ${lat}<br>
+                            Boylam: ${lon}<br>
+                            Parlaklık (Bright_TI4): ${brightness}<br>
+                            Tarih: ${date}<br>
+                            Saat: ${time}<br>
+                            Güvenilirlik: ${confidence}<br>
+                            Uydu: ${satellite}
+                        `;
+                        marker.bindPopup(popupContent);
+                    });
+                    console.log(`Haritaya ${data.fires.length} adet yangın noktası eklendi.`);
+                } else {
+                    console.log("API'den yangın verisi gelmedi.");
+                }
+            })
+            .catch(error => {
+                console.error("Yangın verileri çekilirken bir hata oluştu:", error);
+            });
+       
     </script>
 </body>
 </html>
