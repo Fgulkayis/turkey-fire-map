@@ -5,6 +5,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -13,64 +15,107 @@
             height: 600px;
             width: 100%;
         }
-        /* Basit filtreleme stilini ekleyelim */
-        .filters {
-            margin-bottom: 20px;
-            padding: 10px;
-            border: 1px solid #ccc;
-            background-color: #f9f9f9;
-        }
-        .filters label, .filters select, .filters input, .filters button {
-            margin-right: 10px;
-            margin-bottom: 5px;
-        }
     </style>
 </head>
 <body>
-    <h1>Türkiye Orman Yangınları Haritası</h1>
+    <div class="container mt-4">
+        <h1 class="mb-4 text-center">Türkiye Orman Yangınları Haritası</h1>
 
-    <div class="filters">
-        <label for="time_range">Zaman Aralığı:</label>
-        <select id="time_range">
-            <option value="24" selected>Son 24 Saat</option>
-            <option value="48">Son 48 Saat</option>
-            <option value="7">Son 7 Gün</option>
-            <option value="30">Son 30 Gün</option>
-            </select>
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card text-center bg-info text-white">
+                    <div class="card-body">
+                        <h5 class="card-title">Toplam Yangın</h5>
+                        <p class="card-text fs-2" id="total_fires_stat">0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center bg-success text-white">
+                    <div class="card-body">
+                        <h5 class="card-title">En Son Yangın Tarihi</h5>
+                        <p class="card-text fs-5" id="latest_fire_date_stat">Yok</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center bg-warning text-dark">
+                    <div class="card-body">
+                        <h5 class="card-title">En Yüksek FRP</h5>
+                        <p class="card-text fs-2" id="highest_frp_stat">0.00</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center bg-danger text-white">
+                    <div class="card-body">
+                        <h5 class="card-title">En Aktif İl</h5>
+                        <p class="card-text fs-5" id="most_active_province_stat">Hesaplanmadı</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card mb-4">
+            <div class="card-header">Yangın Filtreleri</div>
+            <div class="card-body">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label for="time_range" class="form-label">Zaman Aralığı:</label>
+                        <select id="time_range" class="form-select">
+                            <option value="24" selected>Son 24 Saat</option>
+                            <option value="48">Son 48 Saat</option>
+                            <option value="7">Son 7 Gün</option>
+                            <option value="30">Son 30 Gün</option>
+                        </select>
+                    </div>
 
-        <label for="confidence">Güven (Confidence):</label>
-        <select id="confidence">
-            <option value="all" selected>Hepsi</option>
-            <option value="low">Düşük</option>
-            <option value="nominal">Normal</option>
-            <option value="high">Yüksek</option>
-        </select>
+                    <div class="col-md-3">
+                        <label for="confidence" class="form-label">Güven (Confidence):</label>
+                        <select id="confidence" class="form-select">
+                            <option value="all" selected>Hepsi</option>
+                            <option value="low">Düşük</option>
+                            <option value="nominal">Normal</option>
+                            <option value="high">Yüksek</option>
+                        </select>
+                    </div>
 
-        <label for="daynight">Gece/Gündüz:</label>
-        <select id="daynight">
-            <option value="all" selected>Hepsi</option>
-            <option value="D">Gündüz</option>
-            <option value="N">Gece</option>
-        </select>
-        
-        <label for="min_frp">Min. FRP:</label>
-        <input type="number" id="min_frp" value="0.0" step="0.1" min="0">
+                    <div class="col-md-3">
+                        <label for="daynight" class="form-label">Gece/Gündüz:</label>
+                        <select id="daynight" class="form-select">
+                            <option value="all" selected>Hepsi</option>
+                            <option value="D">Gündüz</option>
+                            <option value="N">Gece</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <label for="min_frp" class="form-label">Min. FRP:</label>
+                        <input type="number" id="min_frp" value="0.0" step="0.1" min="0" class="form-control">
+                    </div>
 
-        <button id="apply_filters">Filtrele</button>
-        <button id="reset_filters">Temizle</button>
-    </div>
-    <div id="map"></div>
+                    <div class="col-md-1 d-grid">
+                        <button id="apply_filters" class="btn btn-primary">Filtrele</button>
+                    </div>
+                    <div class="col-md-1 d-grid">
+                        <button id="reset_filters" class="btn btn-secondary">Temizle</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="map" class="mb-4 rounded shadow"></div>
+
+    </div> <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 
     <script>
-      
+    
         var map = L.map('map').setView([38.9637, 35.2433], 6);
 
-       
+        
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
 
-       
+        
         var fireMarkers = L.featureGroup().addTo(map);
 
         
@@ -87,7 +132,7 @@
                         return;
                     }
 
-                  
+                    
                     var popupContent = `
                         <b>Yangın Bilgisi</b><br>
                         Enlem: ${lat}<br>
@@ -107,7 +152,7 @@
             }
         }
 
-       
+        
         function fetchFireData(filters = {}) {
             let queryParams = new URLSearchParams();
             if (filters.time_range && filters.time_range !== 'all') {
@@ -119,7 +164,7 @@
             if (filters.daynight && filters.daynight !== 'all') {
                 queryParams.append('daynight', filters.daynight);
             }
-            if (filters.min_frp && filters.min_frp !== '0.0') { 
+            if (filters.min_frp && parseFloat(filters.min_frp) > 0.0) { 
                 queryParams.append('min_frp', filters.min_frp);
             }
 
@@ -133,7 +178,6 @@
             fetch(url)
                 .then(response => {
                     if (!response.ok) {
-                    
                         return response.text().then(text => { throw new Error(text) });
                     }
                     return response.json();
@@ -143,17 +187,31 @@
                         addFireMarkersToMap(data.fires);
                     } else {
                         console.error("API yanıtında 'fires' anahtarı bulunamadı veya boş geldi:", data);
-                        addFireMarkersToMap([]); 
+                        addFireMarkersToMap([]);
+                    }
+                    if (data.statistics) {
+                        document.getElementById('total_fires_stat').innerText = data.statistics.total_fires;
+                        document.getElementById('latest_fire_date_stat').innerText = data.statistics.latest_fire_date;
+                        document.getElementById('highest_frp_stat').innerText = data.statistics.highest_frp;
+                        document.getElementById('most_active_province_stat').innerText = data.statistics.most_active_province;
+                    } else {
+                        console.warn("API yanıtında istatistik verisi bulunamadı.");
+                        document.getElementById('total_fires_stat').innerText = '0';
+                        document.getElementById('latest_fire_date_stat').innerText = 'Yok';
+                        document.getElementById('highest_frp_stat').innerText = '0.00';
+                        document.getElementById('most_active_province_stat').innerText = 'Hesaplanmadı';
                     }
                 })
                 .catch(error => {
                     console.error("Yangın verileri çekilirken bir hata oluştu:", error);
-                   
                     addFireMarkersToMap([]);
+                    document.getElementById('total_fires_stat').innerText = '0';
+                    document.getElementById('latest_fire_date_stat').innerText = 'Yok';
+                    document.getElementById('highest_frp_stat').innerText = '0.00';
+                    document.getElementById('most_active_province_stat').innerText = 'Hesaplanmadı';
                 });
         }
 
-       
         document.getElementById('apply_filters').addEventListener('click', function() {
             var time_range = document.getElementById('time_range').value;
             var confidence = document.getElementById('confidence').value;
@@ -163,16 +221,14 @@
             fetchFireData({ time_range, confidence, daynight, min_frp });
         });
 
-       
         document.getElementById('reset_filters').addEventListener('click', function() {
             document.getElementById('time_range').value = '24';
             document.getElementById('confidence').value = 'all';
             document.getElementById('daynight').value = 'all';
-            document.getElementById('min_frp').value = '0.0';
+            document.getElementById('min_frp').value = '0.0'; 
             fetchFireData(); 
         });
 
-       
         fetchFireData();
     </script>
 </body>
